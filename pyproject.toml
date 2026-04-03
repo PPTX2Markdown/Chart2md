@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chart2md"
+version = "0.1.0"
+description = "Convert OOXML DrawingML charts to Markdown tables"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+chart2md = "chart2md:main"
+
+[tool.setuptools.packages.find]
+include = ["chart2md*"]
