@@ -2,10 +2,10 @@
 
 OOXML (Office Open XML) 파일에 포함된 차트를 Markdown 테이블로 변환하는 순수 Python 패키지입니다. 전통 DrawingML 차트(`c:chartSpace`)와 현대 chartEx 차트(`cx:chartSpace`)를 모두 지원하며, 외부 의존성이 없습니다.
 
-## 설치(pip로 이용하려면)
+## 설치
 
 ```bash
-pip install -e .
+pip install chart2md
 ```
 
 ## 두 가지 핵심 함수
@@ -19,15 +19,15 @@ OOXML 파일에서 차트 XML 파트를 찾아 `(ET.Element, ZipContext)` 쌍의
 
 **제약:** 슬라이드 컨텍스트(어느 슬라이드의 차트인지)를 알 수 없습니다. 단독으로 차트 변환 결과를 빠르게 확인하는 용도에 적합합니다.
 
-### `convert(root, ctx)`
+### `convert_chart(root, ctx)`
 
 차트 XML 루트 `ET.Element`를 받아 Markdown 테이블 문자열을 반환합니다. 루트 태그의 네임스페이스를 보고 전통 DrawingML 차트와 chartEx 차트를 자동으로 판별해 적절한 변환기로 디스패치합니다.
 
 ```python
-from chart2md import convert, load_chart_parts
+from chart2md import convert_chart, load_chart_parts
 
 for root, ctx in load_chart_parts("presentation.pptx"):
-    print(convert(root, ctx))
+    print(convert_chart(root, ctx))
 ```
 
 ---
@@ -53,17 +53,17 @@ PPTX 전체를 슬라이드 순서대로 Markdown으로 변환하는 파이프�
 2. 각 슬라이드 XML을 순서대로 파싱하며 `p:sp`(텍스트), `p:pic`(이미지), `p:graphicFrame`(차트·표) 등 shape을 순회한다.
 3. `p:graphicFrame`의 `a:graphicData[@uri]`에 `"chart"`가 포함되면 차트로 판단한다.
 4. 슬라이드의 `.rels` 파일에서 `r:id`를 resolve해 차트 XML 파일 경로를 얻는다.
-5. 해당 경로로 `ZipContext`를 직접 구성하고 `convert(root, ctx)`를 호출한다.
+5. 해당 경로로 `ZipContext`를 직접 구성하고 `convert_chart(root, ctx)`를 호출한다.
 
 ```python
-from chart2md import convert, ZipContext
+from chart2md import convert_chart, ZipContext
 import xml.etree.ElementTree as ET
 
 # shape 순회 중 차트를 만났을 때
 chart_path = slide_rels[rid]                    # r:id → 경로 resolve
 chart_root = ET.fromstring(zf.read(chart_path))
 ctx = ZipContext(zf, chart_path)
-markdown = convert(chart_root, ctx)             # 차트 타입 자동 판별
+markdown = convert_chart(chart_root, ctx)       # 차트 타입 자동 판별
 ```
 
 이 방식은 슬라이드 순서와 shape의 위치(EMU) 정보를 모두 유지하므로 reading order 적용이 가능합니다.

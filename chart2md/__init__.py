@@ -1,16 +1,15 @@
-"""chart2md — OOXML DrawingML 차트를 Markdown 테이블로 변환하는 패키지.
+"""chart2md — Convert OOXML charts to Markdown tables.
 
-일반적인 사용:
+Basic usage:
 
-    from chart2md import convert, load_chart_parts
+    from chart2md import convert_chart, load_chart_parts
 
     for root, ctx in load_chart_parts("file.pptx"):
-        print(convert(root, ctx))
+        print(convert_chart(root, ctx))
 
-타입별 직접 호출이 필요할 때:
+For type-specific converters:
 
-    from chart2md import convert_chart     # 전통 DrawingML 차트 (c:chartSpace)
-    from chart2md import convert_chartex   # 현대 chartEx 차트 (cx:chartSpace)
+    from chart2md import convert_chartex   # modern chartEx charts (cx:chartSpace)
 """
 
 from __future__ import annotations
@@ -20,42 +19,44 @@ import sys
 import xml.etree.ElementTree as ET
 from typing import Optional
 
-from .chart2md import convert_chart, load_chart_parts
+from .chart2md import convert_chart as _convert_drawingml, load_chart_parts
 from .chartex2md import convert_chartex
 from .excel2md import convert_excel_to_table
 from .ooxml_context import ZipContext, iter_parts_matching
 
-# cx:chartSpace 네임스페이스 식별자
+# cx:chartSpace namespace identifier
 _CHARTEX_NS = "http://schemas.microsoft.com/office/drawing/2014/chartex"
 
 
-def convert(
+def convert_chart(
     root: ET.Element,
     ctx: Optional[ZipContext] = None,
     chart_source: str = "xml",
     chartex_source: str = "excel",
 ) -> str:
-    """차트 XML 루트 Element를 Markdown 테이블 문자열로 변환한다.
+    """Convert a chart XML root element to a Markdown table string.
 
-    루트 태그의 네임스페이스를 보고 전통 DrawingML 차트(c:chartSpace)와
-    현대 chartEx 차트(cx:chartSpace)를 자동 판별해 적절한 변환기로 디스패치한다.
+    Automatically detects whether the root is a traditional DrawingML chart
+    (``c:chartSpace``) or a modern chartEx chart (``cx:chartSpace``) and
+    dispatches to the appropriate converter.
 
     Args:
-        root:           c:chartSpace 또는 cx:chartSpace 루트 ET.Element.
-        ctx:            ZipContext 인스턴스. None이면 관계 참조를 건너뛴다.
-        chart_source:   전통 DrawingML 차트의 데이터 소스.
-                        "xml" (기본값) — DrawingML XML 캐시 파싱.
-                        "excel"        — 내장 .xlsx 우선, 없으면 xml 폴백.
-        chartex_source: 현대 chartEx 차트의 데이터 소스.
-                        "excel" (기본값) — 내장 .xlsx 우선, 없으면 xml 폴백.
-                        "xml"           — XML 캐시(lvl/pt) 직접 파싱.
+        root: ``c:chartSpace`` or ``cx:chartSpace`` root ``ET.Element``.
+        ctx: ``ZipContext`` wrapping the source OOXML archive. Pass ``None``
+            to skip relationship resolution (e.g. linked Excel workbooks).
+        chart_source: Data source for traditional DrawingML charts.
+            ``"xml"`` (default) — parse the embedded DrawingML XML cache.
+            ``"excel"`` — prefer the embedded ``.xlsx`` workbook, fall back to XML.
+        chartex_source: Data source for modern chartEx charts.
+            ``"excel"`` (default) — prefer the embedded ``.xlsx`` workbook, fall back to XML.
+            ``"xml"`` — parse the XML cache directly.
 
     Returns:
-        Markdown 테이블 문자열.
+        Markdown table string.
     """
     if root.tag.startswith(f"{{{_CHARTEX_NS}}}"):
         return convert_chartex(root, ctx, chartex_source)
-    return convert_chart(root, ctx, chart_source)
+    return _convert_drawingml(root, ctx, chart_source)
 
 
 def main() -> None:
@@ -81,9 +82,9 @@ def main() -> None:
 
     parts = []
     for root, ctx in contexts:
-        parts.append(convert(root, ctx,
-                             chart_source=args.chart_source,
-                             chartex_source=args.chartex_source))
+        parts.append(convert_chart(root, ctx,
+                                   chart_source=args.chart_source,
+                                   chartex_source=args.chartex_source))
 
     # 공유 ZipFile 닫기
     seen_zf: set[int] = set()
@@ -106,13 +107,12 @@ def main() -> None:
 __all__ = [
     # CLI
     "main",
-    # 통합 entry point (권장)
-    "convert",
-    "load_chart_parts",
-    # 타입별 직접 호출
+    # main entry point
     "convert_chart",
+    "load_chart_parts",
+    # type-specific converters
     "convert_chartex",
-    # 유틸리티
+    # utilities
     "convert_excel_to_table",
     "ZipContext",
     "iter_parts_matching",
